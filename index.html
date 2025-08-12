@@ -287,7 +287,10 @@
       const fromQuery = parseApiBaseFromQuery();
       if (fromQuery){ localStorage.setItem(API_BASE_KEY, fromQuery); return fromQuery; }
       const saved = localStorage.getItem(API_BASE_KEY);
-      return saved || "http://localhost:3000";
+      if (saved) return saved;
+      // Auto-detect Vercel deploy and default to /api on same origin
+      if (/vercel\.app$/i.test(location.hostname)) return location.origin + "/api";
+      return "http://localhost:3000";
     }
     const API_BASE = getApiBase();
     const API_URL = `${API_BASE}/chat`;
