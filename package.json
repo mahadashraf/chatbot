@@ -10,6 +10,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "serverless-http": "^3.2.0",
+    "undici": "^6.21.3"
   }
 }

@@ -2567,10 +2567,16 @@ Always include the product title and link when recommending.`);
 });
 
 /* ====================== STARTUP ====================== */
-app.listen(PORT, async () => {
-  console.log(`🚀 SaunaBot running on http://localhost:${PORT} (bulk ingest, no overview/faq; specs fixed)`);
-  console.log(`🗂️  Use /ingest/all to batch ingest; /ingest/status to monitor; /ingest/cancel to stop.`);
-});
+// Only start a local HTTP server when not running on Vercel. On Vercel, the app
+// is exported and wrapped by a serverless function in /api.
+if (!process.env.VERCEL) {
+  app.listen(PORT, async () => {
+    console.log(`🚀 SaunaBot running on http://localhost:${PORT} (bulk ingest, no overview/faq; specs fixed)`);
+    console.log(`🗂️  Use /ingest/all to batch ingest; /ingest/status to monitor; /ingest/cancel to stop.`);
+  });
+}
+
+export default app;
 
 function cleanupUserSessions() {
   const now = Date.now();
