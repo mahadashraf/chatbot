@@ -290,7 +290,8 @@
       if (saved) return saved;
       // Auto-detect Vercel deploy and default to /api on same origin
       if (/vercel\.app$/i.test(location.hostname)) return location.origin + "/api";
-      return "http://localhost:3000";
+      // Default to the deployed Vercel URL
+      return "https://chatbot-6oyo.vercel.app/api";
     }
     const API_BASE = getApiBase();
     const API_URL = `${API_BASE}/chat`;
