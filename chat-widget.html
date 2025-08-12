@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SaunaBot 5000</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg: #0b0c0e;
+      --panel: #121417;
+      --muted: #9aa4af;
+      --text: #e8edf2;
+      --accent: #12b886;   /* green */
+      --accent-2: #0ea5e9; /* blue */
+      --ring: rgba(18,184,134,.35);
+      --shadow: 0 10px 25px rgba(0,0,0,.25);
+      --bubble-user: #1f2937;
+      --bubble-bot: linear-gradient(135deg,#0ea5e9 0%, #12b886 100%);
+      --chip: #1b1f24;
+    }
+    .light{
+      --bg:#f7f8fb;
+      --panel:#ffffff;
+      --muted:#5a6877;
+      --text:#0c1220;
+      --accent:#0a835f;
+      --accent-2:#0b72b9;
+      --ring: rgba(11,114,185,.25);
+      --shadow: 0 8px 24px rgba(10, 20, 30, .08);
+      --bubble-user:#eef2f7;
+      --bubble-bot: linear-gradient(135deg,#0b72b9 0%, #0a835f 100%);
+      --chip:#eef2f7;
+    }
+
+    /* Base */
+    html,body{height:100%; overflow:hidden;}
+    body{
+      margin:0; padding:0;
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #000;
+      color:var(--text);
+    }
+    .wrap{
+      display:none;
+      position: fixed;
+      right: 20px;
+      bottom: 90px; /* sit above launcher */
+      width: min(350px, calc(100vw - 32px));
+      height: min(560px, calc(100vh - 120px));
+      padding: 0;
+      margin: 0;
+      z-index: 9998;
+    }
+
+    /* Header */
+    .header{
+      display:flex; align-items:center; justify-content:space-between;
+      background:var(--panel); border-radius:16px; padding:12px 16px;
+      box-shadow: var(--shadow);
+      position: sticky; top: 12px; z-index: 5;
+      backdrop-filter: blur(6px);
+    }
+    /* When header is inside panel, make it seamless */
+    .panel > .header{ background: transparent; box-shadow:none; position: static; border-radius: 16px 16px 0 0; padding: 12px 16px 4px; }
+    .brand{
+      display:flex; align-items:center; gap:10px; font-weight:700;
+      letter-spacing:.2px;
+    }
+    .logo{
+      width:32px; height:32px; display:grid; place-items:center;
+      border-radius:10px; color:white;
+      background:#6b26d9;
+      box-shadow: 0 6px 16px rgba(14,165,233,.35);
+    }
+    .status{
+      display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      background:#ffb020; box-shadow: 0 0 0 3px rgba(255,176,32,.18);
+    }
+    .dot.ok{ background:#12b886; box-shadow: 0 0 0 3px rgba(18,184,134,.18); }
+    .dot.err{ background:#ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
+
+    .header-actions{ display:flex; align-items:center; gap:8px; }
+    .btn{
+      appearance:none; border:none; cursor:pointer;
+      border-radius:10px; padding:8px 12px; color:#ffffff;
+      background: transparent; /* overridden in light mode vars */
+      transition: transform .04s ease, background .2s ease, opacity .2s ease;
+     
+    }
+    .btn:hover{ transform: translateY(-1px); }
+    .btn:active{ transform: translateY(0); }
+    .btn.secondary{ background: var(--chip);} 
+    .btn.accent{ background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(18,184,134,.35); }
+    .btn.icon{ width:38px; height:38px; display:grid; place-items:center; padding:0; }
+
+    /* Quick reply buttons: horizontal line, hover color and text scale */
+    .btn.qr{ background: var(--chip); }
+    .btn.qr:hover{ background:#6b26d9; transform:none; }
+    .btn.qr .label{ display:inline-block; transition: transform .15s ease; }
+    .btn.qr:hover .label{ transform: scale(1.02); }
+
+    /* Suggestions */
+    .chips{
+      display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 10px;
+    }
+    .chip{
+      background: var(--chip); color: var(--text);
+      border-radius: 999px; padding:8px 12px; font-size: 13px;
+      cursor: pointer; user-select:none;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .chip:hover{ filter: brightness(1.07); }
+
+    /* Chat panel */
+    .panel{
+      background: transparent;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow);
+      height: calc(100% - 24px); /* leave room for small footer */
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #303036;
+    }
+    .messages{
+      overflow:auto; padding:16px; scroll-behavior:smooth;
+      min-height: 180px;
+      flex: 1 1 auto;
+    }
+    .row{ display:flex; gap:10px; margin:10px 0; }
+    .row.user { justify-content:flex-end; }
+    .avatar{
+      width:28px; height:28px; border-radius:50%; flex:0 0 auto;
+      display:grid; place-items:center; font-weight:700; font-size:12px; color:#fff;
+      background:#111; box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .avatar.bot{ background:#6b26d9; }
+    .avatar.user{ background:#6b26d9; }
+    .bubble{
+     
+    padding: 12px 16px;
+    border-radius: 14px;
+    position: relative;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+    }
+    .row.user .bubble{
+      background: #6b26d9;
+       color: var(--text);
+      border-top-right-radius:6px;
+    }
+    .row.bot .bubble{
+      background: #18181b;
+    color: #fff;
+    border-top-left-radius: 6px;
+    }
+    .meta{ font-size:12px; opacity:.85; margin-top:6px; }
+
+    /* Typing dots */
+    .typing{ display:inline-flex; gap:4px; align-items:center; }
+    .dotty{
+      width:6px; height:6px; border-radius:50%; background: currentColor; opacity:.6;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dotty:nth-child(2){ animation-delay:.15s }
+    .dotty:nth-child(3){ animation-delay:.3s }
+    @keyframes bounce{
+      0%, 80%, 100% { transform: scale(.7); opacity:.4 }
+      40% { transform: scale(1); opacity:1 }
+    }
+
+    /* Input bar */
+    .input{ display:flex; gap:10px; padding:12px; border-top:1px solid rgba(255,255,255,.06); }
+    .field{ flex:1; display:flex; align-items:center; gap:8px; background: #0f1216; border-radius:12px; padding:8px 10px; border:1px solid rgba(255,255,255,.08); }
+    .light .field{ background:#f3f6fb; }
+    .field:focus-within{ border-color: rgba(255,255,255,.18); }
+    textarea{ flex:1; resize:none; border:none; background:transparent; color: var(--text); padding:6px 4px; font: inherit; line-height:1.4; max-height: 140px; outline:none; min-height: 28px; }
+    .send{ background: #6b26d9; color:#fff; padding:10px 14px; border:none; border-radius:12px; cursor:pointer; min-width:88px;  }
+    .send[disabled]{ opacity:.65; cursor:not-allowed; box-shadow:none; }
+
+    /* Chat launcher (message icon) */
+    .chat-launcher{
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 56px;
+      height: 56px;
+      border: none;
+      border-radius: 50%;
+      background: #6b26d9;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,.35);
+      cursor: pointer;
+      z-index: 9999;
+    }
+    .chat-launcher:hover{ filter: brightness(1.05); }
+    .chat-launcher .icon-close{ display:none; }
+    .chat-launcher.open .icon-open{ display:none; }
+    .chat-launcher.open .icon-close{ display:block; }
+
+    /* Small helper text */
+    .small{ color:var(--muted); font-size:12px; margin:8px 2px 0; }
+
+    /* Inline identity form inside chat bubble */
+    .inline-form{ display:grid; gap:10px; }
+    .inline-form .row2{ display:grid; gap:8px; }
+    .inline-input{ width:83%; border:1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.1); color:#fff; border-radius:10px; padding:10px 12px; outline:none; }
+    .light .inline-input{ background:#ffffff; color:#0c1220; border-color: rgba(0,0,0,.08); }
+    .inline-input::placeholder{ color: rgba(255,255,255,.85); }
+    .light .inline-input::placeholder{ color:#6b7280; }
+    .inline-actions{ display:flex; gap:8px;  }
+    .inline-btn{
+      background: #6b26d9;
+    color: #ffffff;
+    border: none;
+    font-size: inherit;
+    border-radius: 10px;
+    padding: 8px 31px;
+    cursor: pointer;
+     }
+    .light .inline-btn{ background: var(--accent); color:#fff; }
+
+    /* Responsive */
+    @media (max-width: 720px){
+      .wrap{ right: 12px; left: 12px; width: auto; height: min(80vh, calc(100vh - 120px)); bottom: 84px; }
+      .bubble{ max-width: 86%; }
+      .panel{ height: 100%; }
+      .send{ min-width: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <button id="chatLauncher" class="chat-launcher" aria-label="Open chat" aria-expanded="false" aria-controls="chatWrap">
+    <svg class="icon-open" width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M21 12c0 3.866-3.582 7-8 7-1.051 0-2.051-.18-2.967-.51L6 20l.86-2.58C5.712 16.384 5 14.77 5 13c0-3.866 3.582-7 8-7s8 3.134 8 7Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M9 12h6M9 9h6M9 15h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="icon-close" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <div class="wrap" id="chatWrap" role="dialog" aria-modal="true" aria-label="Chatbot">
+    <!-- <div class="chips" id="chips" aria-label="Suggestions"></div> -->
+
+    <div class="panel">
+      <div class="header" role="toolbar" aria-label="SaunaBot controls">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">SB</div>
+          <div>
+            <div>SaunaBot 5000</div>
+            <div class="status"><span id="status-dot" class="dot"></span><span id="status-text">Checking…</span></div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn icon" id="clearBtn" title="Retry" aria-label="Retry">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-3.7-7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M21 5v7h-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <!-- <button class="btn accent" id="pingBtn" title="Check server">Ping</button> -->
+        </div>
+      </div>
+      <div class="messages" id="messages" aria-live="polite" aria-busy="false"></div>
+      <div class="input">
+        <div class="field">
+          <textarea id="msg" rows="1" placeholder="Ask about saunas" aria-label="Message"></textarea>
+        </div>
+        <button id="send" class="send" type="button">Send</button>
+      </div>
+    </div>
+    <div class="small">Powered by Peak Primal.</div>
+  </div>
+
+  <script>
+    // ========= CONFIG =========
+    const API_BASE_KEY = "saunabot_api_base_v1";
+    function parseApiBaseFromQuery(){
+      const m = new URLSearchParams(location.search).get("api");
+      if (!m) return null;
+      try { const u = new URL(m); return u.origin; } catch { return null; }
+    }
+    function getApiBase(){
+      const fromQuery = parseApiBaseFromQuery();
+      if (fromQuery){ localStorage.setItem(API_BASE_KEY, fromQuery); return fromQuery; }
+      const saved = localStorage.getItem(API_BASE_KEY);
+      if (saved) return saved;
+      // Auto-detect Vercel deploy and default to /api on same origin
+      if (/vercel\.app$/i.test(location.hostname)) return location.origin + "/api";
+      // Default to the deployed Vercel URL
+      return "https://chatbot-6oyo.vercel.app/api";
+    }
+    const API_BASE = getApiBase();
+    const API_URL = `${API_BASE}/chat`;
+    const HEALTH_URL = `${API_BASE}/`;
+    const STORAGE_KEY = "saunabot_chat_v1";
+    const IDENTITY_KEY = "saunabot_identity_v1";
+
+    // ========= DOM refs =========
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("msg");
+    const sendEl = document.getElementById("send");
+    const clearEl = document.getElementById("clearBtn");
+    const statusDot = document.getElementById("status-dot");
+    const statusText = document.getElementById("status-text");
+    const chatWrap = document.getElementById("chatWrap");
+    const chatLauncher = document.getElementById("chatLauncher");
+    // const chipsEl = document.getElementById("chips");
+    // const pingBtn = document.getElementById("pingBtn");
+
+    // ========= Utils =========
+    const escapeHTML = (s="") => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    function formatBubbleHtml(s=""){
+      let esc = escapeHTML(s);
+      // Convert "Click here - URL" and bare URLs into anchors. Prevent file:// injection by allowing only http(s)
+      esc = esc.replace(/Click here\s*-\s*(https?:\/\/[^\s<>'")]+)/gi, (_m, url) => {
+        try { const u = new URL(url); if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'Click here'; } catch { return 'Click here'; }
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">Click here</a>`;
+      });
+      esc = esc.replace(/(?<!href=["'])(https?:\/\/[^\s<>'")]+)([)'".,;:]?)/g, (_m, url, trail) => {
+        try { const u = new URL(url); if (u.protocol !== 'http:' && u.protocol !== 'https:') return url + (trail || ''); } catch { return url + (trail || ''); }
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail || ''}`;
+      });
+      // Newlines to <br>
+      esc = esc.replace(/\n/g, "<br>");
+      return esc;
+    }
+    const isNearBottom = () => messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
+    function formatTime(ts){ const d = new Date(ts || Date.now()); const hh = String(d.getHours()).padStart(2, '0'); const mm = String(d.getMinutes()).padStart(2, '0'); return `${hh}:${mm}`; }
+    const scrollToBottom = () => { messagesEl.scrollTop = messagesEl.scrollHeight; };
+
+    function autoresize(){
+      inputEl.style.height = "0px";
+      const next = Math.min(Math.max(inputEl.scrollHeight, 28), 140);
+      inputEl.style.height = next + "px";
+    }
+
+    function setStatus(ok, msg){
+      statusDot.classList.remove("ok","err");
+      if (ok) statusDot.classList.add("ok");
+      if (ok === false) statusDot.classList.add("err");
+      statusText.textContent = msg || (ok ? "Online" : "Offline");
+    }
+
+    async function pingServer(){
+      try{
+        const c = await Promise.race([
+          fetch(HEALTH_URL, { method: "GET" }),
+          new Promise((_, rej)=> setTimeout(()=> rej(new Error("Timeout")), 4000))
+        ]);
+        if (c.ok) setStatus(true, "Online");
+        else setStatus(false, "Unreachable");
+      }catch(_){ setStatus(false, "Offline"); }
+    }
+
+    // ========= Identity =========
+    function getIdentity(){ try{ return JSON.parse(localStorage.getItem(IDENTITY_KEY) || "null"); }catch{ return null; } }
+    function setIdentity(obj){ localStorage.setItem(IDENTITY_KEY, JSON.stringify(obj)); }
+    function validEmail(e){ return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(e || ""); }
+
+    let identityBubbleEl = null;
+    function lockComposer(lock){ inputEl.disabled = !!lock; sendEl.disabled = !!lock; }
+
+    function getUserInitials(){
+      try{
+        const ident = getIdentity();
+        const name = (ident && ident.name ? String(ident.name) : "").trim();
+        if (!name) return "U";
+        const compact = name.split(/\s+/).join("");
+        return compact.slice(0,2).toUpperCase();
+      }catch{ return "U"; }
+    }
+
+    function renderIdentityBubble(){
+      if (identityBubbleEl) return;
+      const row = document.createElement("div");
+      row.className = "row bot";
+      const avatar = document.createElement("div");
+      avatar.className = "avatar bot"; avatar.textContent = "AI";
+      const bub = document.createElement("div");
+      bub.className = "bubble";
+      bub.innerHTML = `
+        <div class="inline-form" aria-label="Enter your details to start">
+          <div>Before we begin, please enter your details:</div>
+          <div class="row2">
+            <input id="ifName" class="inline-input" type="text" placeholder="Full Name" autocomplete="name" />
+            <input id="ifEmail" class="inline-input" type="email" placeholder="E-mail" autocomplete="email" />
+          </div>
+          <div class="inline-actions"><button id="ifStart" class="inline-btn" type="button">Start</button></div>
+        </div>`;
+      row.appendChild(avatar); row.appendChild(bub); messagesEl.appendChild(row);
+      identityBubbleEl = row; if (isNearBottom()) scrollToBottom();
+      document.getElementById("ifName").focus();
+      document.getElementById("ifStart").addEventListener("click", async ()=>{
+        const name = document.getElementById("ifName").value.trim();
+        const email = document.getElementById("ifEmail").value.trim();
+        if (!name){ document.getElementById("ifName").focus(); return; }
+        if (!validEmail(email)){ document.getElementById("ifEmail").focus(); return; }
+        setIdentity({ name, email });
+        lockComposer(false);
+        await sendIdentityToServer(name, email);
+        identityBubbleEl.remove(); identityBubbleEl = null;
+      });
+      lockComposer(true);
+    }
+
+    async function sendIdentityToServer(name, email){
+      const msg = `Name: ${name}, Email: ${email}`;
+      // Do NOT add the user's identity as a chat message
+      showTyping();
+      try{
+        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg }) });
+        hideTyping();
+        if (res.ok){
+          const data = await res.json();
+          let q = data.quick_replies;
+          if (!q || !Array.isArray(q) || !q.length){
+            q = [
+              { label: " Find My Perfect Sauna " },
+          
+              { label: " Sauna Heater & Stones Advice" },
+          
+              { label: " Delivery & Lead Time Info" },
+              { label: " Contact Support" },
+            ];
+          }
+          addMessage("bot", data.reply || "(no reply)", { quickReplies: q });
+        }
+        else{ addMessage("bot", `Error ${res.status}`); }
+      }catch(err){ hideTyping(); addMessage("bot", `Network error: ${err.message || err}`); }
+    }
+
+    // ========= Render =========
+    function addMessage(role, text, opts = {}){
+      const row = document.createElement("div");
+      row.className = `row ${role}`;
+      const avatar = document.createElement("div");
+      avatar.className = `avatar ${role === "user" ? "user" : "bot"}`;
+      avatar.textContent = role === "user" ? getUserInitials() : "AI";
+      const bub = document.createElement("div");
+      bub.className = "bubble";
+      bub.innerHTML = formatBubbleHtml(text || "");
+      const timeEl = document.createElement("div");
+      timeEl.className = "meta";
+      timeEl.textContent = formatTime(opts.t || Date.now());
+      timeEl.style.textAlign = role === "user" ? "right" : "left";
+      const bubbleWrap = document.createElement("div");
+      bubbleWrap.style.display = "flex";
+      bubbleWrap.style.flexDirection = "column";
+      bubbleWrap.style.alignItems = role === "user" ? "flex-end" : "flex-start";
+      bubbleWrap.appendChild(bub);
+      bubbleWrap.appendChild(timeEl);
+      if (role === "user") {
+        row.appendChild(bubbleWrap);
+        row.appendChild(avatar);
+      } else {
+        row.appendChild(avatar);
+        row.appendChild(bubbleWrap);
+      }
+      messagesEl.appendChild(row);
+
+      // Render quick reply buttons below the message (not inside the bubble)
+      if (opts.quickReplies && Array.isArray(opts.quickReplies) && opts.quickReplies.length){
+        const wrap = document.createElement("div");
+        wrap.style.marginTop = "10px";
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "row";
+        wrap.style.flexWrap = "wrap";
+        wrap.style.overflowX = "visible";
+        wrap.style.gap = "8px";
+        // indent to align under the bubble (avatar 28px + gap 10px)
+        wrap.style.marginLeft = role === 'user' ? '0px' : '38px';
+        for (const qr of opts.quickReplies){
+          const btn = document.createElement("button");
+          btn.className = "btn qr";
+          btn.type = "button";
+          btn.style.flex = '0 0 auto';
+          const label = document.createElement('span');
+          label.className = 'label';
+          const raw = qr.label || qr.code || "";
+          const cleaned = raw.replace(/^[A-Z]\s*[\)\.:\-]\s*/i, "");
+          label.textContent = cleaned;
+          btn.appendChild(label);
+          btn.addEventListener("click", ()=>{
+            inputEl.value = cleaned;
+            autoresize();
+            send();
+          });
+          wrap.appendChild(btn);
+        }
+        messagesEl.appendChild(wrap);
+      }
+
+      if (!opts.noPersist) { persistPush({ role, text, t: Date.now() }); }
+      if (isNearBottom()) scrollToBottom();
+    }
+
+    let typingEl = null;
+    function showTyping(){ if (typingEl) return; typingEl = document.createElement("div"); typingEl.className = "row bot"; typingEl.innerHTML = `
+        <div class="avatar bot">AI</div>
+        <div class="bubble"><span class="typing" aria-live="polite" aria-label="Bot is typing">
+          <span class="dotty"></span><span class="dotty"></span><span class="dotty"></span>
+        </span></div>`; messagesEl.appendChild(typingEl); if (isNearBottom()) scrollToBottom(); }
+    function hideTyping(){ if (typingEl){ typingEl.remove(); typingEl = null; } }
+
+    // ========= Persistence =========
+    function persistPush(msg){ const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); arr.push(msg); if (arr.length > 100) arr.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+    function loadHistory(){ const arr = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); for (const m of arr){ addMessage(m.role, m.text, { noPersist:true, t: m.t }); } }
+    function clearHistory(){ localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(IDENTITY_KEY); messagesEl.innerHTML = ""; renderIdentityBubble(); }
+
+    // ========= Suggestions =========
+    // const suggestions = [
+    //   "What's included with the FD-7 Thermo Aspen?",
+    //   "Give me specs & dimensions for FD-6 and FD-7.",
+    //   "Do you have installation PDFs for Finnmark barrel saunas?",
+    //   "Compare electric vs. wood heaters for a 140 ft³ room.",
+    //   "What's the warranty and lead time on FD-7?"
+    // ];
+    // function renderChips(){ suggestions.forEach(s=>{ const c = document.createElement("div"); c.className = "chip"; c.textContent = s; c.addEventListener("click", ()=>{ inputEl.value = s; autoresize(); send(); }); chipsEl.appendChild(c); }); }
+
+    // ========= Send flow =========
+    async function send(){
+      const ident = getIdentity();
+      if (!ident){ renderIdentityBubble(); return; }
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      addMessage("user", text);
+      inputEl.value = ""; autoresize(); sendEl.disabled = true; inputEl.disabled = true; messagesEl.setAttribute("aria-busy", "true"); showTyping();
+
+      try{
+        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) });
+        hideTyping();
+        if (!res.ok){ const body = await res.text().catch(()=> ""); addMessage("bot", `Error ${res.status}: ${body || "Request failed"}`); }
+        else{
+          const data = await res.json();
+          addMessage("bot", data.reply || "(no reply)", { quickReplies: data.quick_replies });
+        }
+      }catch(err){ hideTyping(); addMessage("bot", `Network error: ${err.message || err}`); }
+      finally{ sendEl.disabled = false; inputEl.disabled = false; inputEl.focus(); messagesEl.setAttribute("aria-busy", "false"); if (!statusDot.classList.contains("ok")) pingServer(); }
+    }
+
+    // ========= Launcher =========
+    function openChat(){
+      chatWrap.style.display = "block";
+      chatLauncher.classList.add("open");
+      chatLauncher.setAttribute("aria-expanded", "true");
+      setTimeout(scrollToBottom, 0);
+    }
+    function closeChat(){
+      chatWrap.style.display = "none";
+      chatLauncher.classList.remove("open");
+      chatLauncher.setAttribute("aria-expanded", "false");
+    }
+    function toggleChat(){
+      const isOpen = chatWrap.style.display !== "none";
+      if (isOpen) closeChat(); else openChat();
+    }
+    chatLauncher.addEventListener("click", toggleChat);
+
+    // Theme toggle removed; dark mode enforced
+
+    // ========= Bindings =========
+    sendEl.addEventListener("click", send);
+    inputEl.addEventListener("keydown", (e)=>{ if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); } });
+    inputEl.addEventListener("input", autoresize);
+    clearEl.addEventListener("click", clearHistory);
+    // pingBtn.addEventListener("click", pingServer);
+
+    // ========= Boot =========
+    (function boot(){
+      // Force dark mode
+      document.body.classList.remove("light");
+
+      // Always require identity again on full page load
+      localStorage.removeItem(IDENTITY_KEY);
+      // Also clear previous chat history on reload
+      localStorage.removeItem(STORAGE_KEY);
+      // Hide chat UI initially; show launcher
+      chatWrap.style.display = "none";
+      autoresize(); /* renderChips(); */ loadHistory(); pingServer();
+      // Delay identity bubble until chat is opened
+      chatLauncher.addEventListener("click", ()=>{
+        if (!identityBubbleEl && chatWrap.style.display !== "none") renderIdentityBubble();
+      });
+      // Surface current API base in console for easy copy
+      // eslint-disable-next-line no-console
+      console.log("Using API:", API_BASE);
+    })();
+  </script>
+</body>
+</html>
